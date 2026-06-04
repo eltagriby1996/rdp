@@ -4,8 +4,7 @@ on: [push]
 
 jobs:
   rdp-setup:
-    # تعديل السطر لطلب فئة الـ 8core والـ 32gb أو الـ 16core حسب المتاح لحسابك المدفوع
-    runs-on: windows-2022-8core-32gb
+    runs-on: windows-latest
     timeout-minutes: 360  # GitHub Free max runtime is 6 hours
 
     steps:
