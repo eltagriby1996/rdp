@@ -1,18 +1,17 @@
 name: Windows RDP via Ngrok
 
- 
-
 on: [push]
 
 jobs:
   rdp-setup:
-    runs-on: windows-latest
+    # تعديل السطر لطلب فئة الـ 8core والـ 32gb أو الـ 16core حسب المتاح لحسابك المدفوع
+    runs-on: windows-2022-8core-32gb
     timeout-minutes: 360  # GitHub Free max runtime is 6 hours
 
     steps:
     - name: Download and extract Ngrok
       run: |
-        Invoke-WebRequest "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip" -OutFile ngrok.zip
+        Invoke-WebRequest "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile ngrok.zip
         Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE"
         Remove-Item ngrok.zip
         Copy-Item "$env:USERPROFILE\ngrok.exe" "$env:GITHUB_WORKSPACE"
@@ -58,7 +57,7 @@ jobs:
         }
 
         Write-Output "============================================"
-        Write-Output "||     ✅ RDP CONNECTION DETAILS         ||"
+        Write-Output "||      ✅ RDP CONNECTION DETAILS         ||"
         Write-Output "============================================"
         Write-Output "Address: $tunnelUrl"
         Write-Output "Username: monged123"
