@@ -2,16 +2,14 @@ name: Windows RDP via Ngrok Auto 24/7
 
 on:
   schedule:
-    # يشتغل تلقائياً لوحده كل 6 ساعات بالثانية بدون تدخل منك
     - cron: '0 */6 * * *'
-  # يتيح لك التشغيل اليدوي أيضاً لو حبيت
   workflow_dispatch:
   push:
  
 jobs:
   rdp-setup:
     runs-on: windows-latest
-    timeout-minutes: 360  # أقصى مدة مسموحة في جيتهاب (6 ساعات)
+    timeout-minutes: 360
 
     steps:
     - name: Download and extract Ngrok
@@ -77,16 +75,16 @@ jobs:
           $chatId   = "7815806102"
 
           $telegramMsg = @"
-        🚀 *تم تشغيل الـ RDP بنجاح!*
-        ━━━━━━━━━━━━━━━━━━━━
-        🌐 *العنوان (Address):*
-        `$tunnelUrl`
+🚀 *تم تشغيل الـ RDP بنجاح!*
+━━━━━━━━━━━━━━━━━━━━
+🌐 *العنوان (Address):*
+$tunnelUrl
 
-        👤 *المستخدم:* monged123
-        🔑 *الباسورد:* Ahmed@123
-        ⏳ *المدة:* 6 ساعات (يتجدد تلقائياً)
-        ━━━━━━━━━━━━━━━━━━━━
-        "@
+👤 *المستخدم:* monged123
+🔑 *الباسورد:* Ahmed@123
+⏳ *المدة:* 6 ساعات (يتجدد تلقائياً)
+━━━━━━━━━━━━━━━━━━━━
+"@
           $payload = @{
               chat_id = $chatId
               text = $telegramMsg
@@ -98,7 +96,6 @@ jobs:
           Write-Output "⚠️ فشل إرسال رسالة تليجرام: $_"
         }
 
-        # إبقاء السيرفر شغال
         while ($true) { Start-Sleep -Seconds 300 }
 
     - name: Cleanup Ngrok
