@@ -73,27 +73,11 @@ jobs:
         try {
           $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
           $chatId   = "7815806102"
-
-          $telegramMsg = @"
-🚀 *تم تشغيل الـ RDP بنجاح!*
-━━━━━━━━━━━━━━━━━━━━
-🌐 *العنوان (Address):*
-$tunnelUrl
-
-👤 *المستخدم:* monged123
-🔑 *الباسورد:* Ahmed@123
-⏳ *المدة:* 6 ساعات (يتجدد تلقائياً)
-━━━━━━━━━━━━━━━━━━━━
-"@
-          $payload = @{
-              chat_id = $chatId
-              text = $telegramMsg
-              parse_mode = "Markdown"
-          }
-          Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -Body $payload
-          Write-Output "✅ تم إرسال البيانات إلى تليجرام بنجاح!"
+          $msg = "RDP is Live!`nAddress: " + $tunnelUrl + "`nUser: monged123`nPass: Ahmed@123`nDuration: 6 Hours (Auto-Renew)"
+          Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -Body @{ chat_id = $chatId; text = $msg }
+          Write-Output "Sent to Telegram successfully!"
         } catch {
-          Write-Output "⚠️ فشل إرسال رسالة تليجرام: $_"
+          Write-Output "Telegram Error: $_"
         }
 
         while ($true) { Start-Sleep -Seconds 300 }
