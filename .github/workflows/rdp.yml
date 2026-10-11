@@ -77,13 +77,26 @@ jobs:
 
     - name: Start Ngrok Tunnel and Notify Telegram
       run: |
-        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
-        Start-Sleep -Seconds 7
+        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389 --log=stdout" -RedirectStandardOutput "ngrok.log" -WindowStyle Hidden
+        
+        $retry = 0
+        $tunnelUrl = $null
+        while ($retry -lt 15 -and -not $tunnelUrl) {
+            Start-Sleep -Seconds 2
+            try {
+                $tunnel = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -ErrorAction Stop
+                $tunnelUrl = $tunnel.tunnels[0].public_url
+            } catch {
+                $retry++
+            }
+        }
 
-        $tunnel = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels"
-        $tunnelUrl = $tunnel.tunnels[0].public_url
+        if (-not $tunnelUrl) {
+            Get-Content "ngrok.log" -ErrorAction SilentlyContinue
+            throw "Ngrok failed to start. Make sure no old runner is occupying the tunnel!"
+        }
+
         $rdpAddress = $tunnelUrl -replace "tcp://", ""
-
         $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
         $chatId = "7815806102"
         
@@ -99,10 +112,9 @@ jobs:
         🔑 <b>Password:</b>
         <code>Ahmed@123</code>
 
-        🤖 <b>مساعد الذكاء الاصطناعي شغال الآن في شات البوت التاني:</b>
-        - ابعتله ريكوردات وفويس نوت هيرد عليك فوراً!
+        🤖 <b>مساعد الذكاء الاصطناعي شغال الآن في شات البوت التاني!</b>
+        - ابعتله فويس نوت أو ريكورد وهيرد عليك فوراً.
         - اكتب <code>/image</code> لتوليد صور بدقة 4K.
-        - ابعت أي صورة لتحليلها وقراءتها.
 
         📁 <i>ملاحظة: ملفاتك السابقة محفوظة في مجلد SavedWork على سطح المكتب.</i>
         ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
