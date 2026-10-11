@@ -2,14 +2,18 @@ name: Windows RDP via Ngrok
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # تشغيل تلقائي كل 6 ساعات
-  workflow_dispatch:        # إمكانية التشغيل اليدوي
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
   push:
+
+concurrency:
+  group: rdp-session
+  cancel-in-progress: true
 
 jobs:
   rdp-setup:
     runs-on: windows-latest
-    timeout-minutes: 360  # الحد الأقصى المجاني 6 ساعات
+    timeout-minutes: 360
 
     steps:
     - name: Checkout Repository
@@ -17,13 +21,11 @@ jobs:
 
     - name: Download Tools (Ngrok & Rclone)
       run: |
-        # Download Ngrok
         Invoke-WebRequest "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile ngrok.zip
         Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE"
         Remove-Item ngrok.zip
-        Copy-Item "$env:USERPROFILE\ngrok.exe" "$env:GITHUB_WORKSPACE"
+        Copy-Item "$env:USERPROFILE\ngrok.exe" "$env:GITHUB_WORKSPACE\ngrok.exe"
 
-        # Download Rclone for Mega persistence
         Invoke-WebRequest "https://downloads.rclone.org/rclone-current-windows-amd64.zip" -OutFile rclone.zip
         Expand-Archive rclone.zip -DestinationPath "$env:USERPROFILE\rclone"
         Remove-Item rclone.zip
@@ -41,28 +43,29 @@ jobs:
         $ErrorActionPreference = "Stop"
         .\ngrok.exe authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
 
-    - name: Enable RDP and Firewall
+    - name: Enable RDP, Disable NLA, and Open Firewall
       run: |
-        # تفعيل RDP وإلغاء NLA وإعادة تشغيل الخدمة فوراً لتطبيق التغييرات
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
         New-NetFirewallRule -DisplayName "Allow RDP via Ngrok" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -ErrorAction SilentlyContinue
+        
         Set-Service -Name TermService -StartupType Automatic
         Restart-Service -Name TermService -Force
+        Start-Sleep -Seconds 3
 
     - name: Create Dedicated User
       run: |
-        # تعطيل قيود تعقيد الباسورد في الويندوز
         secedit /export /cfg c:\secpol.cfg
         (Get-Content c:\secpol.cfg).replace("PasswordComplexity = 1", "PasswordComplexity = 0").replace("MinimumPasswordLength = 8", "MinimumPasswordLength = 0") | Set-Content c:\secpol.cfg
         secedit /configure /db c:\windows\security\local.sdb /cfg c:\secpol.cfg /areas SECURITYPOLICY
         Remove-Item -Force c:\secpol.cfg -ErrorAction SilentlyContinue
 
-        # إنشاء المستخدم بالباسورد المطلوب
         cmd /c "net user monged123 Ahmed@123 /add /y"
         cmd /c "net localgroup administrators monged123 /add"
         cmd /c "net localgroup ""Remote Desktop Users"" monged123 /add"
+        cmd /c "wmic useraccount where name='monged123' set PasswordExpires=FALSE"
 
     - name: Restore Previous Work from Mega
       run: |
@@ -73,34 +76,35 @@ jobs:
         Write-Host "Files restored successfully!"
 
     - name: Launch AI Bot in Background
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         Write-Host "Installing Python libraries for AI bot..."
         pip install requests pillow pyTelegramBotAPI
         Write-Host "Starting AI Telegram Bot..."
-        Start-Process python -ArgumentList "bot.py" -WindowStyle Hidden
+        Start-Process -FilePath "python" -ArgumentList "bot.py" -WindowStyle Hidden
 
     - name: Start Ngrok Tunnel and Notify Telegram
       run: |
-        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389 --log=stdout" -RedirectStandardOutput "ngrok.log" -WindowStyle Hidden
-        
-        $retry = 0
-        $tunnelUrl = $null
-        while ($retry -lt 15 -and -not $tunnelUrl) {
+        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
+
+        $rdpAddress = ""
+        for ($i = 0; $i -lt 15; $i++) {
             Start-Sleep -Seconds 2
             try {
-                $tunnel = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -ErrorAction Stop
-                $tunnelUrl = $tunnel.tunnels[0].public_url
-            } catch {
-                $retry++
-            }
+                $tunnel = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -ErrorAction SilentlyContinue
+                if ($tunnel.tunnels.Count -gt 0) {
+                    $rdpAddress = $tunnel.tunnels[0].public_url -replace "tcp://", ""
+                    break
+                }
+            } catch {}
         }
 
-        if (-not $tunnelUrl) {
-            Get-Content "ngrok.log" -ErrorAction SilentlyContinue
-            throw "Ngrok failed to start!"
+        if ([string]::IsNullOrEmpty($rdpAddress)) {
+            Write-Error "Failed to obtain Ngrok tunnel URL!"
+            exit 1
         }
 
-        $rdpAddress = $tunnelUrl -replace "tcp://", ""
         $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
         $chatId = "7815806102"
         
@@ -116,7 +120,9 @@ jobs:
         🔑 <b>Password:</b>
         <code>Ahmed@123</code>
 
-        📁 <i>ملاحظة: ملفاتك السابقة محفوظة في مجلد SavedWork على سطح المكتب.</i>
+        📁 <b>ملاحظة:</b> ملفاتك السابقة محفوظة في مجلد <code>SavedWork</code> على سطح المكتب.
+        🤖 <b>بوت الذكاء الاصطناعي شغال 24/7 وبدون أي حدود (1500 رسالة يومياً) ومعدل للرد بالمصري والصور بدون لوجو!</b>
+
         ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
         "@
 
@@ -144,7 +150,7 @@ jobs:
 
             $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
             $chatId = "7815806102"
-            $alertMsg = "💾 <b>تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!</b>`n`nالأرديبي التالي هيبدأ قريباً ويسترجع ملفاتك تلقائياً."
+            $alertMsg = "💾 <b>تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!</b>`n`nالأرديبي التالي سيبدأ تلقائياً ويسترجع ملفاتك."
             
             $body = @{
                 chat_id = $chatId
