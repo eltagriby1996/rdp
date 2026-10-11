@@ -11,10 +11,8 @@ from urllib.parse import quote
 BOT_TOKEN = "8905058906:AAGI2S_PuIZlzjFxe5HYiAm_K8q67d2n7k0"
 ALLOWED_USER_ID = 7815806102  # حسابك فقط للحماية
 
-# المفتاح الشغال الخاص بك (مجزأ لتخطي فحص جيت هاب وحمايته من التعطيل)
-_k1 = "AQ.Ab8RN6KIWoNmrTkBHMz"
-_k2 = "omwjk7_PQMe_9NiY3vazgj8tlsVjsBw"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or (_k1 + _k2)
+# سحب المفتاح بأمان تام من GitHub Secrets
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -22,6 +20,9 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 def ask_gemini(prompt: str, media_bytes: bytes = None, mime_type: str = "image/jpeg") -> str:
     """إرسال النصوص، الصور، أو التسجيلات الصوتية إلى Gemini Flash"""
+    if not GEMINI_API_KEY:
+        return "⚠️ مفتاح GEMINI_API_KEY غير موجود في إعدادات GitHub Secrets!\nيرجى إضافته في إعدادات المستودع أولاً."
+
     models = ["gemini-3.8-flash", "gemini-flash-latest"]
     
     parts = []
