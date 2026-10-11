@@ -43,7 +43,7 @@ jobs:
 
     - name: Enable RDP and Firewall
       run: |
-        # تفعيل RDP وتعطيل NLA وتشغيل الخدمة
+        # تفعيل خدمة RDP وإلغاء NLA وضمان تشغيل الخدمة
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "UserAuthentication" -Value 0
         Set-Service -Name TermService -StartupType Automatic
@@ -73,8 +73,6 @@ jobs:
         Write-Host "Files restored successfully!"
 
     - name: Launch AI Bot in Background
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         Write-Host "Installing Python libraries for AI bot..."
         pip install requests pillow pyTelegramBotAPI
@@ -117,8 +115,6 @@ jobs:
 
         🔑 <b>Password:</b>
         <code>Ahmed@123</code>
-
-        🤖 <b>مساعد الذكاء الاصطناعي شغال الآن في شات البوت التاني!</b>
 
         📁 <i>ملاحظة: ملفاتك السابقة محفوظة في مجلد SavedWork على سطح المكتب.</i>
         ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
