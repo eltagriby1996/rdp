@@ -57,15 +57,17 @@ jobs:
 
     - name: Create Dedicated User
       run: |
+        # تعطيل قيود تعقيد الباسورد في الويندوز
         secedit /export /cfg c:\secpol.cfg
         (Get-Content c:\secpol.cfg).replace("PasswordComplexity = 1", "PasswordComplexity = 0").replace("MinimumPasswordLength = 8", "MinimumPasswordLength = 0") | Set-Content c:\secpol.cfg
         secedit /configure /db c:\windows\security\local.sdb /cfg c:\secpol.cfg /areas SECURITYPOLICY
         Remove-Item -Force c:\secpol.cfg -ErrorAction SilentlyContinue
 
+        # إنشاء المستخدم بالباسورد المطلوب وإعطاؤه الصلاحيات الكاملة
         cmd /c "net user monged123 Ahmed@123 /add /y"
         cmd /c "net localgroup administrators monged123 /add"
         cmd /c "net localgroup ""Remote Desktop Users"" monged123 /add"
-        cmd /c "wmic useraccount where name='monged123' set PasswordExpires=FALSE"
+        Set-LocalUser -Name "monged123" -PasswordNeverExpires $true -ErrorAction SilentlyContinue
 
     - name: Restore Previous Work from Mega
       run: |
