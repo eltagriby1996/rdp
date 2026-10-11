@@ -7,7 +7,7 @@ import telebot
 from urllib.parse import quote
 
 # ----------------- الإعدادات -----------------
-BOT_TOKEN = "8905058906:AAGI2S_PuIZlzjFxe5HYiAm_K8q67d2n7k0"
+BOT_TOKEN = "8905058906:AAGQWq739nbsmFgSYx61fCPvaxrt9xP7kiE"
 ALLOWED_USER_ID = 7815806102  # حسابك فقط للحماية
 
 # المفتاح الشغال مشفر بـ Base64 لضمان عدم حظره وعمله فوراً
