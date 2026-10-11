@@ -1,23 +1,37 @@
-name: Windows RDP via Ngrok Auto 24/7
+name: Windows RDP via Ngrok
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
-  workflow_dispatch:
+    - cron: '0 */6 * * *'  # تشغيل تلقائي كل 6 ساعات
+  workflow_dispatch:        # إمكانية التشغيل اليدوي
   push:
- 
+
 jobs:
   rdp-setup:
     runs-on: windows-latest
-    timeout-minutes: 360
+    timeout-minutes: 360  # الحد الأقصى المجاني 6 ساعات
 
     steps:
-    - name: Download and extract Ngrok
+    - name: Download Tools (Ngrok & Rclone)
       run: |
+        # Download Ngrok
         Invoke-WebRequest "https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip" -OutFile ngrok.zip
         Expand-Archive ngrok.zip -DestinationPath "$env:USERPROFILE"
         Remove-Item ngrok.zip
         Copy-Item "$env:USERPROFILE\ngrok.exe" "$env:GITHUB_WORKSPACE"
+
+        # Download Rclone for Mega persistence
+        Invoke-WebRequest "https://downloads.rclone.org/rclone-current-windows-amd64.zip" -OutFile rclone.zip
+        Expand-Archive rclone.zip -DestinationPath "$env:USERPROFILE\rclone"
+        Remove-Item rclone.zip
+        $rclonePath = (Get-ChildItem -Path "$env:USERPROFILE\rclone" -Filter "rclone.exe" -Recurse).FullName
+        Copy-Item $rclonePath "$env:GITHUB_WORKSPACE\rclone.exe"
+
+    - name: Configure Rclone with Mega
+      run: |
+        $obscuredPass = .\rclone.exe obscure "${{ secrets.MEGA_PASSWORD }}"
+        .\rclone.exe config create mymega mega user "${{ secrets.MEGA_EMAIL }}" pass "$obscuredPass"
+        .\rclone.exe mkdir mymega:RDP_Backup
 
     - name: Authenticate Ngrok
       run: |
@@ -30,59 +44,74 @@ jobs:
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         New-NetFirewallRule -DisplayName "Allow RDP via Ngrok" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389
 
-    - name: Create Admin User
+    - name: Create Dedicated User
       run: |
-        net user monged123 Ahmed@123 /add
-        net localgroup administrators monged123 /add
+        $Password = ConvertTo-SecureString "Ahmed@123" -AsPlainText -Force
+        New-LocalUser -Name "monged123" -Password $Password -FullName "Ahmed RDP" -Description "RDP User"
+        Add-LocalGroupMember -Group "Remote Desktop Users" -Member "monged123"
+        Add-LocalGroupMember -Group "Administrators" -Member "monged123"
 
-    - name: Start Ngrok Tunnel & Send to Telegram
+    - name: Restore Previous Work from Mega
       run: |
-        Start-Process -FilePath "$pwd\ngrok.exe" -ArgumentList "tcp 3389 --log=stdout" -NoNewWindow -RedirectStandardOutput ngrok.log
+        $savedWork = "C:\Users\monged123\Desktop\SavedWork"
+        New-Item -ItemType Directory -Force -Path $savedWork | Out-Null
+        Write-Host "Restoring files from Mega..."
+        .\rclone.exe copy mymega:RDP_Backup $savedWork
+        Write-Host "Files restored successfully!"
 
-        $tunnelUrl = $null
-        $timeout = 60
+    - name: Start Ngrok Tunnel and Notify Telegram
+      run: |
+        Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
+        Start-Sleep -Seconds 7
 
-        while ($timeout -gt 0 -and -not $tunnelUrl) {
-          Start-Sleep -Seconds 5
-          $timeout -= 5
-          try {
-            $response = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels" -ErrorAction Stop
-            $tunnelUrl = $response.tunnels[0].public_url -replace "tcp://", ""
-          } catch {
-            $logContent = Get-Content ngrok.log -ErrorAction SilentlyContinue
-            $tunnelUrl = $logContent | Select-String -Pattern "tcp://([a-zA-Z0-9\.\-]+:\d+)" | ForEach-Object { $_.Matches.Groups[1].Value }
-          }
-        }
+        $tunnel = Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels"
+        $tunnelUrl = $tunnel.tunnels[0].public_url
+        $rdpAddress = $tunnelUrl -replace "tcp://", ""
 
-        if (-not $tunnelUrl) {
-          Write-Output "::error::Ngrok tunnel could not be established"
-          exit 1
-        }
+        $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
+        $chatId = "7815806102"
+        $message = @"
+        🚀 *تم تشغيل الأرديبي الجديد بنجاح!*
 
-        Write-Output "============================================"
-        Write-Output "||      ✅ RDP CONNECTION DETAILS         ||"
-        Write-Output "============================================"
-        Write-Output "Address: $tunnelUrl"
-        Write-Output "Username: monged123"
-        Write-Output "Password: Ahmed@123"
-        Write-Output "============================================"
+        🖥 *IP / Port:* ``$rdpAddress``
+        👤 *Username:* ``monged123``
+        🔑 *Password:* ``Ahmed@123``
 
-        # ==========================================
-        # 🚀 إرسال بيانات الاتصال إلى تليجرام فوراً
-        # ==========================================
-        try {
-          $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
-          $chatId   = "7815806102"
-          $msg = "RDP is Live!`nAddress: " + $tunnelUrl + "`nUser: monged123`nPass: Ahmed@123`nDuration: 6 Hours (Auto-Renew)"
-          Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -Body @{ chat_id = $chatId; text = $msg }
-          Write-Output "Sent to Telegram successfully!"
-        } catch {
-          Write-Output "Telegram Error: $_"
-        }
+        📁 *ملاحظة:* تم استرجاع ملفاتك السابقة في مجلد *SavedWork* على سطح المكتب. أي ملف تحطه جواه هيتحفظ تلقائياً على ميجا قبل انتهاء الجلسة!
+        ⏱ *المدة:* 5 ساعات و 45 دقيقة
+        "@
 
-        while ($true) { Start-Sleep -Seconds 300 }
+        $body = @{
+            chat_id = $chatId
+            text = $message
+            parse_mode = "Markdown"
+        } | ConvertTo-Json
 
-    - name: Cleanup Ngrok
+        Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
+
+    - name: Keep Alive (5 Hours 45 Minutes)
+      run: |
+        Write-Host "RDP is alive and running for 5 hours and 45 minutes..."
+        Start-Sleep -Seconds 20700
+
+    - name: Auto-Save Workspace to Mega & Notify Telegram
       if: always()
       run: |
-        Stop-Process -Name "ngrok" -Force -ErrorAction SilentlyContinue
+        $savedWork = "C:\Users\monged123\Desktop\SavedWork"
+        if (Test-Path $savedWork) {
+            Write-Host "Syncing work to Mega..."
+            .\rclone.exe sync $savedWork mymega:RDP_Backup
+            Write-Host "Backup completed!"
+
+            $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
+            $chatId = "7815806102"
+            $alertMsg = "💾 *تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!*`n`nالأرديبي التالي هيبدأ قريباً ويسترجع ملفاتك تلقائياً."
+            
+            $body = @{
+                chat_id = $chatId
+                text = $alertMsg
+                parse_mode = "Markdown"
+            } | ConvertTo-Json
+
+            Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
+        }
