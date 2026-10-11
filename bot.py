@@ -12,7 +12,8 @@ BOT_TOKEN = "8905058906:AAGI2S_PuIZlzjFxe5HYiAm_K8q67d2n7k0"
 ALLOWED_USER_ID = 7815806102  # حسابك فقط للحماية
 
 # المفتاح الخاص بك
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6LFCCN8yGvO9a10_Lg5e6SN1LXbdW2O7fvSP9BbGkMfMg")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
