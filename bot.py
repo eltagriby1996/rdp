@@ -10,7 +10,7 @@ from io import BytesIO
 from PIL import Image
 
 # ----------------- الإعدادات -----------------
-BOT_TOKEN = "8905058906:AAGI2S_PuIZlzjFxe5HYiAm_K8q67d2n7k0"
+BOT_TOKEN = "8905058906:AAGQWq739nbsmFgSYx61fCPvaxrt9xP7kiE"
 ALLOWED_USER_ID = 7815806102  # حماية البوت ليعمل معك أنت فقط
 
 # مفتاح الـ API الخاص بك مجزأ لحمايته من فحص جيت هاب
