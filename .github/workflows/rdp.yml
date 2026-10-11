@@ -46,14 +46,20 @@ jobs:
 
     - name: Create Dedicated User
       run: |
-        $Password = ConvertTo-SecureString "Ahmed@123" -AsPlainText -Force
-        New-LocalUser -Name "monged123" -Password $Password -FullName "Ahmed RDP" -Description "RDP User"
-        Add-LocalGroupMember -Group "Remote Desktop Users" -Member "monged123"
-        Add-LocalGroupMember -Group "Administrators" -Member "monged123"
+        # تعطيل قيود تعقيد الباسورد في الويندوز
+        secedit /export /cfg c:\secpol.cfg
+        (Get-Content c:\secpol.cfg).replace("PasswordComplexity = 1", "PasswordComplexity = 0").replace("MinimumPasswordLength = 8", "MinimumPasswordLength = 0") | Set-Content c:\secpol.cfg
+        secedit /configure /db c:\windows\security\local.sdb /cfg c:\secpol.cfg /areas SECURITYPOLICY
+        Remove-Item -Force c:\secpol.cfg -ErrorAction SilentlyContinue
+
+        # إنشاء المستخدم بالباسورد المطلوب
+        cmd /c "net user monged123 Ahmed@123 /add /y"
+        cmd /c "net localgroup administrators monged123 /add"
+        cmd /c "net localgroup ""Remote Desktop Users"" monged123 /add"
 
     - name: Restore Previous Work from Mega
       run: |
-        $savedWork = "C:\Users\monged123\Desktop\SavedWork"
+        $savedWork = "C:\Users\Public\Desktop\SavedWork"
         New-Item -ItemType Directory -Force -Path $savedWork | Out-Null
         Write-Host "Restoring files from Mega..."
         .\rclone.exe copy mymega:RDP_Backup $savedWork
@@ -97,7 +103,7 @@ jobs:
     - name: Auto-Save Workspace to Mega & Notify Telegram
       if: always()
       run: |
-        $savedWork = "C:\Users\monged123\Desktop\SavedWork"
+        $savedWork = "C:\Users\Public\Desktop\SavedWork"
         if (Test-Path $savedWork) {
             Write-Host "Syncing work to Mega..."
             .\rclone.exe sync $savedWork mymega:RDP_Backup
