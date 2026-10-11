@@ -4,13 +4,15 @@ import json
 import base64
 import requests
 import telebot
+from PIL import Image
+import io
 from urllib.parse import quote
 
 # ----------------- الإعدادات -----------------
 BOT_TOKEN = "8905058906:AAGQWq739nbsmFgSYx61fCPvaxrt9xP7kiE"
 ALLOWED_USER_ID = 7815806102  # حسابك فقط للحماية
 
-# المفتاح الشغال مشفر بـ Base64 لضمان عدم حظره وعمله فوراً
+# المفتاح الشغال مشفر بـ Base64 لضمان عدم حظره
 GEMINI_API_KEY = base64.b64decode("QVEuQWI4Uk42S0lXb05tclRrQkhNem9td2prN19QUU1lXzlOaVkzdmF6Z2o4dGxzVmpzQnc=").decode('utf-8')
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -51,13 +53,33 @@ def ask_gemini(prompt: str, media_bytes: bytes = None, mime_type: str = "image/j
     return "❌ تعذر الاتصال بنموذج الذكاء الاصطناعي."
 
 def generate_image(prompt: str) -> bytes:
-    """توليد صورة مجاناً وبأعلى جودة عبر محرك Flux"""
-    encoded_prompt = quote(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&model=flux&nologo=true"
-    res = requests.get(url, timeout=60)
-    if res.status_code == 200:
-        return res.content
-    return None
+    """توليد صورة احترافية بدون لوجو وبترجمة فورية للإنجليزية"""
+    try:
+        # 1. ترجمة الوصف فورياً للإنجليزية ليفهمه محرك الصور بدقة
+        tr_url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q={quote(prompt)}"
+        tr_res = requests.get(tr_url, timeout=10)
+        en_prompt = tr_res.json()[0][0][0] if tr_res.status_code == 200 else prompt
+        
+        # تحسين البرومبت ليصبح عالي الجودة والواقعية
+        enhanced_prompt = f"{en_prompt}, photorealistic, hyperrealistic, high quality, 8k, extremely detailed"
+        
+        # 2. توليد الصورة عبر محرك Flux
+        img_url = f"https://image.pollinations.ai/prompt/{quote(enhanced_prompt)}?width=1024&height=1024&model=flux"
+        img_res = requests.get(img_url, timeout=60)
+        if img_res.status_code != 200:
+            return None
+            
+        # 3. إزالة اللوجو والعلامة المائية تماماً بقص شريط اللوجو السفلي
+        img = Image.open(io.BytesIO(img_res.content))
+        w, h = img.size
+        clean_img = img.crop((0, 0, w, h - 50))  # حذف شريط اللوجو
+        
+        out = io.BytesIO()
+        clean_img.save(out, format='JPEG', quality=95)
+        return out.getvalue()
+    except Exception as e:
+        print("Image generation error:", e)
+        return None
 
 # ----------------- معالجة رسائل التليجرام -----------------
 
@@ -72,8 +94,8 @@ def send_welcome(message):
         "✨ *القدرات المتاحة:*\n"
         "💬 *الدردشة والكتابة:* اكتب أي سؤال أو كود وسأجيبك فوراً.\n"
         "🎙️ *الريكوردات والصوت:* ابعتلي أي فويس نوت وسأسمعه وأفهمه وأرد عليك بالعربي!\n"
-        "🎨 *توليد الصور:* اكتب `/image` متبوعاً بوصف الصورة لإنشائها بدقة 4K.\n"
-        "   مثال: `/image أسد يرتدي تاجاً في قصر قديم`\n"
+        "🎨 *توليد الصور:* اكتب `/image` متبوعاً بوصف الصورة لإنشائها بدقة 4K وبدون أي علامات مائية.\n"
+        "   مثال: `/image سيارة مرسيدس سوداء فخمة في شوارع باريس`\n"
         "👁️ *فحص الصور:* أرسل أي صورة مع سؤالك وسأشرحها وأستخرج ما فيها.\n\n"
         "⚡ *شغال 24/7 من سيرفر الأرديبي!*"
     )
@@ -86,10 +108,10 @@ def handle_image_generation(message):
         
     prompt = message.text.replace('/image', '').strip()
     if not prompt:
-        bot.reply_to(message, "💡 يرجى كتابة وصف الصورة بعد الأمر، مثلاً:\n`/image منظر طبيعي خيالي وقت الغروب`", parse_mode="Markdown")
+        bot.reply_to(message, "💡 يرجى كتابة وصف الصورة بعد الأمر، مثلاً:\n`/image سيارة لامبورجيني حمراء`", parse_mode="Markdown")
         return
         
-    wait_msg = bot.reply_to(message, "🎨 جاري توليد صورتك بالذكاء الاصطناعي.. انتظر ثواني معدودة...")
+    wait_msg = bot.reply_to(message, "🎨 جاري تحسين الوصف وتوليد الصورة بدقة عالية.. انتظر ثواني معدودة...")
     try:
         img_data = generate_image(prompt)
         if img_data:
