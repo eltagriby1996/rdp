@@ -12,6 +12,9 @@ jobs:
     timeout-minutes: 360  # الحد الأقصى المجاني 6 ساعات
 
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
     - name: Download Tools (Ngrok & Rclone)
       run: |
         # Download Ngrok
@@ -65,6 +68,13 @@ jobs:
         .\rclone.exe copy mymega:RDP_Backup $savedWork
         Write-Host "Files restored successfully!"
 
+    - name: Launch AI Bot in Background
+      run: |
+        Write-Host "Installing Python libraries for AI bot..."
+        pip install requests pillow pyTelegramBotAPI
+        Write-Host "Starting AI Telegram Bot..."
+        Start-Process python -ArgumentList "bot.py" -WindowStyle Hidden
+
     - name: Start Ngrok Tunnel and Notify Telegram
       run: |
         Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
@@ -76,21 +86,32 @@ jobs:
 
         $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
         $chatId = "7815806102"
+        
         $message = @"
-        🚀 *تم تشغيل الأرديبي الجديد بنجاح!*
+        🚀 <b>تم تشغيل الأرديبي وبوت الذكاء الاصطناعي بنجاح!</b>
 
-        🖥 *IP / Port:* ``$rdpAddress``
-        👤 *Username:* ``monged123``
-        🔑 *Password:* ``Ahmed@123``
+        🖥 <b>IP / Port:</b>
+        <code>$rdpAddress</code>
 
-        📁 *ملاحظة:* تم استرجاع ملفاتك السابقة في مجلد *SavedWork* على سطح المكتب. أي ملف تحطه جواه هيتحفظ تلقائياً على ميجا قبل انتهاء الجلسة!
-        ⏱ *المدة:* 5 ساعات و 45 دقيقة
+        👤 <b>Username:</b>
+        <code>monged123</code>
+
+        🔑 <b>Password:</b>
+        <code>Ahmed@123</code>
+
+        🤖 <b>مساعد الذكاء الاصطناعي شغال الآن في شات البوت التاني:</b>
+        - ابعتله ريكوردات وفويس نوت هيرد عليك فوراً!
+        - اكتب <code>/image</code> لتوليد صور بدقة 4K.
+        - ابعت أي صورة لتحليلها وقراءتها.
+
+        📁 <i>ملاحظة: ملفاتك السابقة محفوظة في مجلد SavedWork على سطح المكتب.</i>
+        ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
         "@
 
         $body = @{
             chat_id = $chatId
             text = $message
-            parse_mode = "Markdown"
+            parse_mode = "HTML"
         } | ConvertTo-Json
 
         Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
@@ -111,12 +132,12 @@ jobs:
 
             $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
             $chatId = "7815806102"
-            $alertMsg = "💾 *تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!*`n`nالأرديبي التالي هيبدأ قريباً ويسترجع ملفاتك تلقائياً."
+            $alertMsg = "💾 <b>تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!</b>`n`nالأرديبي التالي هيبدأ قريباً ويسترجع ملفاتك تلقائياً."
             
             $body = @{
                 chat_id = $chatId
                 text = $alertMsg
-                parse_mode = "Markdown"
+                parse_mode = "HTML"
             } | ConvertTo-Json
 
             Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
