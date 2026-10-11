@@ -76,27 +76,21 @@ jobs:
 
         $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
         $chatId = "7815806102"
-        
         $message = @"
-        🚀 <b>تم تشغيل الأرديبي الجديد بنجاح!</b>
+        🚀 *تم تشغيل الأرديبي الجديد بنجاح!*
 
-        🖥 <b>IP / Port:</b>
-        <code>$rdpAddress</code>
+        🖥 *IP / Port:* ``$rdpAddress``
+        👤 *Username:* ``monged123``
+        🔑 *Password:* ``Ahmed@123``
 
-        👤 <b>Username:</b>
-        <code>monged123</code>
-
-        🔑 <b>Password:</b>
-        <code>Ahmed@123</code>
-
-        📁 <i>ملاحظة: ملفاتك السابقة محفوظة في مجلد SavedWork على سطح المكتب.</i>
-        ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
+        📁 *ملاحظة:* تم استرجاع ملفاتك السابقة في مجلد *SavedWork* على سطح المكتب. أي ملف تحطه جواه هيتحفظ تلقائياً على ميجا قبل انتهاء الجلسة!
+        ⏱ *المدة:* 5 ساعات و 45 دقيقة
         "@
 
         $body = @{
             chat_id = $chatId
             text = $message
-            parse_mode = "HTML"
+            parse_mode = "Markdown"
         } | ConvertTo-Json
 
         Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
@@ -117,12 +111,12 @@ jobs:
 
             $botToken = "8795026199:AAHAhnfLZE-NavsXhyx6RA_romeePlFXETE"
             $chatId = "7815806102"
-            $alertMsg = "💾 <b>تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!</b>`n`nالأرديبي التالي هيبدأ قريباً ويسترجع ملفاتك تلقائياً."
+            $alertMsg = "💾 *تم حفظ كل ملفاتك من SavedWork إلى حساب Mega بنجاح!*`n`nالأرديبي التالي هيبدأ قريباً ويسترجع ملفاتك تلقائياً."
             
             $body = @{
                 chat_id = $chatId
                 text = $alertMsg
-                parse_mode = "HTML"
+                parse_mode = "Markdown"
             } | ConvertTo-Json
 
             Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
