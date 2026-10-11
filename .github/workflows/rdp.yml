@@ -43,9 +43,13 @@ jobs:
 
     - name: Enable RDP and Firewall
       run: |
+        # تفعيل RDP وتعطيل NLA وتشغيل الخدمة
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "UserAuthentication" -Value 0
+        Set-Service -Name TermService -StartupType Automatic
+        Start-Service -Name TermService
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        New-NetFirewallRule -DisplayName "Allow RDP via Ngrok" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389
+        New-NetFirewallRule -DisplayName "Allow RDP via Ngrok" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -ErrorAction SilentlyContinue
 
     - name: Create Dedicated User
       run: |
@@ -69,6 +73,8 @@ jobs:
         Write-Host "Files restored successfully!"
 
     - name: Launch AI Bot in Background
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         Write-Host "Installing Python libraries for AI bot..."
         pip install requests pillow pyTelegramBotAPI
@@ -93,7 +99,7 @@ jobs:
 
         if (-not $tunnelUrl) {
             Get-Content "ngrok.log" -ErrorAction SilentlyContinue
-            throw "Ngrok failed to start. Make sure no old runner is occupying the tunnel!"
+            throw "Ngrok failed to start!"
         }
 
         $rdpAddress = $tunnelUrl -replace "tcp://", ""
@@ -113,8 +119,6 @@ jobs:
         <code>Ahmed@123</code>
 
         🤖 <b>مساعد الذكاء الاصطناعي شغال الآن في شات البوت التاني!</b>
-        - ابعتله فويس نوت أو ريكورد وهيرد عليك فوراً.
-        - اكتب <code>/image</code> لتوليد صور بدقة 4K.
 
         📁 <i>ملاحظة: ملفاتك السابقة محفوظة في مجلد SavedWork على سطح المكتب.</i>
         ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
