@@ -1,6 +1,5 @@
 name: Windows RDP via Ngrok
 
-
 on:
   schedule:
     - cron: '0 */6 * * *'  # تشغيل تلقائي كل 6 ساعات
@@ -44,13 +43,13 @@ jobs:
 
     - name: Enable RDP and Firewall
       run: |
-        # تفعيل خدمة RDP وإلغاء NLA وضمان تشغيل الخدمة
-        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
-        Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "UserAuthentication" -Value 0
-        Set-Service -Name TermService -StartupType Automatic
-        Start-Service -Name TermService
+        # تفعيل RDP وإلغاء NLA وإعادة تشغيل الخدمة فوراً لتطبيق التغييرات
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         New-NetFirewallRule -DisplayName "Allow RDP via Ngrok" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -ErrorAction SilentlyContinue
+        Set-Service -Name TermService -StartupType Automatic
+        Restart-Service -Name TermService -Force
 
     - name: Create Dedicated User
       run: |
