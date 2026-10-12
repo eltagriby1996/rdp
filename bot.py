@@ -179,3 +179,44 @@ def handle_voice(message):
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     """فحص وتحليل الصور"""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+        
+    wait_msg = bot.reply_to(message, "👁️ بفحص الصورة بالذكاء الاصطناعي يا باشا.. ثواني...")
+    try:
+        file_info = bot.get_file(message.photo[-1].file_id)
+        image_bytes = bot.download_file(file_info.file_path)
+        
+        caption = message.caption or "اشرح بالتفصيل ماذا ترى في هذه الصورة واستخرج أي نصوص أو معلومات منها."
+        reply = ask_gemini(prompt=caption, media_bytes=image_bytes, mime_type="image/jpeg")
+        
+        try:
+            bot.delete_message(message.chat.id, wait_msg.message_id)
+        except Exception:
+            pass
+        bot.reply_to(message, reply)
+    except Exception as e:
+        bot.edit_message_text(f"❌ حصل خطأ في فحص الصورة: {str(e)}", message.chat.id, wait_msg.message_id)
+
+@bot.message_handler(func=lambda msg: True)
+def handle_text(message):
+    """الرد على الرسائل النصية"""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+        
+    try:
+        bot.send_chat_action(message.chat.id, 'typing')
+    except Exception:
+        pass
+        
+    reply = ask_gemini(message.text)
+    bot.reply_to(message, reply)
+
+if __name__ == "__main__":
+    print("🤖 بوت الذكاء الاصطناعي شغال ومستعد لاستقبال رسائلك...")
+    while True:
+        try:
+            bot.infinity_polling(timeout=25, long_polling_timeout=25)
+        except Exception as err:
+            print(f"Polling warning: {err}")
+            time.sleep(3)
