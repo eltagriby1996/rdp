@@ -72,7 +72,7 @@ jobs:
         $savedWork = "C:\Users\Public\Desktop\SavedWork"
         New-Item -ItemType Directory -Force -Path $savedWork | Out-Null
         Write-Host "Restoring files from Mega..."
-        .\rclone.exe copy mymega:RDP_Backup $savedWork -ErrorAction SilentlyContinue
+        .\rclone.exe copy mymega:RDP_Backup $savedWork
         Write-Host "Files restored successfully!"
 
     - name: Launch AI Bot in Background
