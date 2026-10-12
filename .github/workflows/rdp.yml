@@ -2,8 +2,8 @@ name: Windows RDP via Ngrok
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
-  workflow_dispatch:
+    - cron: '0 */6 * * *'  # تجديد تلقائي كل 6 ساعات
+  workflow_dispatch:        # زر التشغيل اليدوي بنقرة واحدة
   push:
 
 concurrency:
@@ -13,7 +13,7 @@ concurrency:
 jobs:
   rdp-setup:
     runs-on: windows-latest
-    timeout-minutes: 360
+    timeout-minutes: 360  # الحد الأقصى 6 ساعات
 
     steps:
     - name: Checkout Repository
@@ -57,13 +57,11 @@ jobs:
 
     - name: Create Dedicated User
       run: |
-        # تعطيل قيود تعقيد الباسورد في الويندوز
         secedit /export /cfg c:\secpol.cfg
         (Get-Content c:\secpol.cfg).replace("PasswordComplexity = 1", "PasswordComplexity = 0").replace("MinimumPasswordLength = 8", "MinimumPasswordLength = 0") | Set-Content c:\secpol.cfg
         secedit /configure /db c:\windows\security\local.sdb /cfg c:\secpol.cfg /areas SECURITYPOLICY
         Remove-Item -Force c:\secpol.cfg -ErrorAction SilentlyContinue
 
-        # إنشاء المستخدم بالباسورد المطلوب وإعطاؤه الصلاحيات الكاملة
         cmd /c "net user monged123 Ahmed@123 /add /y"
         cmd /c "net localgroup administrators monged123 /add"
         cmd /c "net localgroup ""Remote Desktop Users"" monged123 /add"
@@ -74,7 +72,7 @@ jobs:
         $savedWork = "C:\Users\Public\Desktop\SavedWork"
         New-Item -ItemType Directory -Force -Path $savedWork | Out-Null
         Write-Host "Restoring files from Mega..."
-        .\rclone.exe copy mymega:RDP_Backup $savedWork
+        .\rclone.exe copy mymega:RDP_Backup $savedWork -ErrorAction SilentlyContinue
         Write-Host "Files restored successfully!"
 
     - name: Launch AI Bot in Background
@@ -84,7 +82,7 @@ jobs:
         Write-Host "Installing Python libraries for AI bot..."
         pip install requests pillow pyTelegramBotAPI
         Write-Host "Starting AI Telegram Bot..."
-        Start-Process -FilePath "python" -ArgumentList "bot.py" -WindowStyle Hidden
+        Start-Process -FilePath "python" -ArgumentList "$env:GITHUB_WORKSPACE\bot.py" -WorkingDirectory "$env:GITHUB_WORKSPACE" -WindowStyle Hidden
 
     - name: Start Ngrok Tunnel and Notify Telegram
       run: |
@@ -123,7 +121,7 @@ jobs:
         <code>Ahmed@123</code>
 
         📁 <b>ملاحظة:</b> ملفاتك السابقة محفوظة في مجلد <code>SavedWork</code> على سطح المكتب.
-        🤖 <b>بوت الذكاء الاصطناعي شغال 24/7 وبدون أي حدود (1500 رسالة يومياً) ومعدل للرد بالمصري والصور بدون لوجو!</b>
+        🤖 <b>بوت الذكاء الاصطناعي شغال معك في نفس هذا الشات (@starter_rdppbot)! كلمني هنا وهرد عليك فوراً.</b>
 
         ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
         "@
@@ -136,10 +134,28 @@ jobs:
 
         Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
 
-    - name: Keep Alive (5 Hours 45 Minutes)
+    - name: Keep Alive with Heartbeat (5 Hours 45 Minutes)
       run: |
-        Write-Host "RDP is alive and running for 5 hours and 45 minutes..."
-        Start-Sleep -Seconds 20700
+        Write-Host "🚀 RDP Session is active! Starting heartbeat monitor loop..."
+        $totalMinutes = 345 # 5 ساعات و 45 دقيقة
+        for ($m = 1; $m -le $totalMinutes; $m++) {
+            Start-Sleep -Seconds 60
+            Write-Host "⏱️ Heartbeat: RDP is active ($m / $totalMinutes minutes elapsed)..."
+            
+            # مراقبة وإعادة تشغيل البوت تلقائياً لو توقف لأي سبب
+            $botRunning = Get-Process -Name "python" -ErrorAction SilentlyContinue
+            if (-not $botRunning) {
+                Write-Host "⚠️ Re-launching AI Telegram Bot..."
+                Start-Process -FilePath "python" -ArgumentList "$env:GITHUB_WORKSPACE\bot.py" -WorkingDirectory "$env:GITHUB_WORKSPACE" -WindowStyle Hidden
+            }
+
+            # مراقبة نفق Ngrok لضمان عدم انقطاع الاتصال
+            $ngrokRunning = Get-Process -Name "ngrok" -ErrorAction SilentlyContinue
+            if (-not $ngrokRunning) {
+                Write-Host "⚠️ Re-launching Ngrok Tunnel..."
+                Start-Process -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -WindowStyle Hidden
+            }
+        }
 
     - name: Auto-Save Workspace to Mega & Notify Telegram
       if: always()
