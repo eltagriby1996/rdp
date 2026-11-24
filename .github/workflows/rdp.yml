@@ -2,13 +2,17 @@ name: Windows RDP via Ngrok
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # تجديد تلقائي كل 6 ساعات
+    # فحص وتشغيل كل ساعة في الدقيقة 17 لتجنب طوابير الدقيقة 0 على جيت هاب
+    # أول ما الأرديبي ينتهي، السيرفر التالي سيبدأ تلقائياً دون الانتظار 6 ساعات
+    - cron: '17 * * * *'
   workflow_dispatch:        # زر التشغيل اليدوي بنقرة واحدة
   push:
+    branches:
+      - main
 
 concurrency:
   group: rdp-session
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   rdp-setup:
@@ -124,7 +128,7 @@ jobs:
         📁 <b>ملاحظة:</b> ملفاتك السابقة محفوظة في مجلد <code>SavedWork</code> على سطح المكتب.
         🤖 <b>بوت الذكاء الاصطناعي شغال معك في نفس هذا الشات (@starter_rdppbot)! كلمني هنا وهرد عليك فوراً وبدون حدود.</b>
 
-        ⏱ <b>المدة:</b> 5 ساعات و 45 دقيقة
+        ⏱ <b>المدة:</b> 5 ساعات و 30 دقيقة
         "@
 
         $body = @{
@@ -135,10 +139,10 @@ jobs:
 
         Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
 
-    - name: Keep Alive with Heartbeat (5 Hours 45 Minutes)
+    - name: Keep Alive with Heartbeat (5 Hours 30 Minutes)
       run: |
         Write-Host "🚀 RDP Session is active! Starting heartbeat monitor loop..."
-        $totalMinutes = 345 # 5 ساعات و 45 دقيقة
+        $totalMinutes = 330 # 5 ساعات و 30 دقيقة
         for ($m = 1; $m -le $totalMinutes; $m++) {
             Start-Sleep -Seconds 60
             Write-Host "⏱️ Heartbeat: RDP is active ($m / $totalMinutes minutes elapsed)..."
@@ -178,4 +182,28 @@ jobs:
             } | ConvertTo-Json
 
             Invoke-RestMethod -Uri "https://api.telegram.org/bot$botToken/sendMessage" -Method Post -ContentType "application/json; charset=utf-8" -Body $body
+        }
+
+    - name: Trigger Next RDP Session Immediately
+      if: always()
+      continue-on-error: true
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
+      run: |
+        Write-Host "Checking for auto-dispatch trigger..."
+        if (-not [string]::IsNullOrWhiteSpace($env:GH_PAT)) {
+            try {
+                Write-Host "🚀 Triggering next RDP run via GitHub API using GH_PAT..."
+                $headers = @{
+                    "Authorization" = "token $env:GH_PAT"
+                    "Accept" = "application/vnd.github.v3+json"
+                }
+                $body = @{ ref = "main" } | ConvertTo-Json
+                Invoke-RestMethod -Uri "https://api.github.com/repos/eltagriby1996/rdp/actions/workflows/rdp.yml/dispatches" -Method Post -Headers $headers -Body $body
+                Write-Host "✅ Next RDP triggered immediately via API!"
+            } catch {
+                Write-Warning "Auto-dispatch error: $_"
+            }
+        } else {
+            Write-Host "ℹ️ GH_PAT secret is not set. The next RDP will be started automatically by the hourly cron schedule (:17)."
         }
